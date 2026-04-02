@@ -46,12 +46,19 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  render,
+  asChild,
+  children,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  const effectiveRender = render ?? (asChild ? children : undefined)
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      nativeButton={effectiveRender === undefined}
+      render={effectiveRender}
+      {...(effectiveRender ? {} : { children })}
       {...props}
     />
   )
