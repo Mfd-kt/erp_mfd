@@ -3,6 +3,8 @@ import type { DebtWithRemaining } from '@/lib/supabase/types'
 
 export interface DebtFilters {
   computed_status?: string
+  /** Plusieurs statuts (ex. ouvert + partiel pour « pas en retard »). */
+  computed_status_in?: string[]
   priority?: string
   creditor_id?: string
   debt_category_id?: string
@@ -24,7 +26,11 @@ export async function getDebtsWithRemaining(
     .eq('company_id', companyId)
     .order('due_date', { ascending: true, nullsFirst: false })
 
-  if (filters?.computed_status) query = query.eq('computed_status', filters.computed_status)
+  if (filters?.computed_status_in?.length) {
+    query = query.in('computed_status', filters.computed_status_in)
+  } else if (filters?.computed_status) {
+    query = query.eq('computed_status', filters.computed_status)
+  }
   if (filters?.priority) query = query.eq('priority', filters.priority)
   if (filters?.creditor_id) query = query.eq('creditor_id', filters.creditor_id)
   if (filters?.debt_category_id) query = query.eq('debt_category_id', filters.debt_category_id)

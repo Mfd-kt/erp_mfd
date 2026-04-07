@@ -658,6 +658,47 @@ export const readTools = {
     }
   },
 
+  /** Sprints récents du périmètre (société ou global). */
+  async list_recent_sprints(ctx: AssistantContext): Promise<ToolResult> {
+    try {
+      const { supabase, scope } = await getSupabaseAndScope(ctx)
+      const companyIds = ctx.companyIds
+      const orFilter =
+        companyIds.length > 0
+          ? `company_id.in.(${companyIds.join(',')}),company_id.is.null`
+          : 'company_id.is.null'
+
+      const { data, error } = await supabase
+        .from('sprints')
+        .select('id, title, status, scope_type, company_id, start_date, end_date, goal')
+        .or(orFilter)
+        .order('start_date', { ascending: false })
+        .limit(15)
+
+      if (error) throw new Error(error.message)
+
+      const companies = scope?.companies ?? ctx.companies
+      const nameById = new Map(companies.map((c) => [c.id, (c as { trade_name?: string }).trade_name ?? (c as { legal_name: string }).legal_name]))
+
+      const sprints = (data ?? []).map((s) => ({
+        id: (s as { id: string }).id,
+        title: (s as { title: string }).title,
+        status: (s as { status: string }).status,
+        scopeType: (s as { scope_type: string }).scope_type,
+        startDate: (s as { start_date: string }).start_date,
+        endDate: (s as { end_date: string }).end_date,
+        goal: (s as { goal?: string | null }).goal ?? null,
+        companyName: (s as { company_id?: string | null }).company_id
+          ? nameById.get((s as { company_id: string }).company_id) ?? null
+          : null,
+      }))
+
+      return { success: true, data: { count: sprints.length, sprints } }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  },
+
   async get_safe_withdrawal_capacity(ctx: AssistantContext): Promise<ToolResult> {
     try {
       const { supabase, scope } = await getSupabaseAndScope(ctx)

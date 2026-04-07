@@ -34,9 +34,22 @@ export default async function DebtsPage({
   const priority = typeof resolvedSearchParams?.priority === 'string' ? resolvedSearchParams.priority : undefined
   const creditor_id = typeof resolvedSearchParams?.creditor_id === 'string' ? resolvedSearchParams.creditor_id : undefined
   const debt_category_id = typeof resolvedSearchParams?.debt_category_id === 'string' ? resolvedSearchParams.debt_category_id : undefined
-  const normalizedStatus =
-    status === 'paid' || status === 'cancelled' ? undefined : status
-  const filters = { computed_status: normalizedStatus, priority, creditor_id, debt_category_id }
+
+  const filters =
+    status === 'not_overdue'
+      ? {
+          computed_status_in: ['open', 'partially_paid'],
+          priority,
+          creditor_id,
+          debt_category_id,
+        }
+      : {
+          computed_status:
+            status === 'paid' || status === 'cancelled' ? undefined : status,
+          priority,
+          creditor_id,
+          debt_category_id,
+        }
 
   const [debts, creditors, debtCategories, debtTypes, canManage] = await Promise.all([
     getDebtsWithRemaining(companyId, filters),
@@ -72,6 +85,7 @@ export default async function DebtsPage({
         criticalCount: openDebts.filter((d) => d.priority === 'critical').length,
       }}
       openCreateOnMount={create === '1'}
+      filterCreditorId={creditor_id}
     />
   )
 }

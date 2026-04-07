@@ -15,6 +15,14 @@ interface PendingAction {
   created_at: string
 }
 
+function pendingSummary(actionName: string, payload: Record<string, unknown>): string {
+  const title = typeof payload.title === 'string' ? payload.title : null
+  if (actionName === 'create_task' && title) return `Créer la tâche « ${title} »`
+  if (actionName === 'create_sprint' && title) return `Créer le sprint « ${title} »`
+  if (actionName === 'send_slack_notification' && title) return `Notification Slack : ${title}`
+  return actionName
+}
+
 export function PendingConfirmationsBanner() {
   const router = useRouter()
   const [pending, setPending] = useState<PendingAction[]>([])
@@ -76,11 +84,9 @@ export function PendingConfirmationsBanner() {
                   key={a.id}
                   className="flex items-center justify-between gap-4 rounded border border-amber-800/40 bg-amber-950/20 px-3 py-2"
                 >
-                  <div>
-                    <p className="font-mono text-sm text-amber-100">{a.action_name}</p>
-                    <p className="text-xs text-zinc-500 truncate max-w-[200px]">
-                      {JSON.stringify(a.action_payload_json)}
-                    </p>
+                  <div className="min-w-0">
+                    <p className="text-sm text-amber-100">{pendingSummary(a.action_name, a.action_payload_json)}</p>
+                    <p className="mt-0.5 font-mono text-[10px] text-zinc-600 truncate">{a.action_name}</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button

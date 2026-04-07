@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { updateRecommendationStatus } from '../actions'
+import { postponeRecommendation, updateRecommendationStatus } from '../actions'
 import type { AssistantRecommendation } from '../types'
-import { Check, X } from 'lucide-react'
+import { Check, Clock, X } from 'lucide-react'
 
 interface RecommendationCardProps {
   recommendation: AssistantRecommendation
@@ -22,6 +22,11 @@ export function RecommendationCard({ recommendation }: RecommendationCardProps) 
 
   async function handleDismiss() {
     await updateRecommendationStatus(recommendation.id, 'dismissed')
+    router.refresh()
+  }
+
+  async function handlePostpone() {
+    await postponeRecommendation(recommendation.id)
     router.refresh()
   }
 
@@ -41,10 +46,13 @@ export function RecommendationCard({ recommendation }: RecommendationCardProps) 
             </Badge>
           </div>
           <div className="flex gap-1 shrink-0">
-            <Button variant="ghost" size="sm" className="h-7 text-emerald-400" onClick={handleAccept}>
+            <Button variant="ghost" size="sm" className="h-7 text-emerald-400" onClick={handleAccept} title="Accepter">
               <Check size={12} />
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-zinc-400" onClick={handleDismiss}>
+            <Button variant="ghost" size="sm" className="h-7 text-amber-400/90" onClick={handlePostpone} title="Reporter (décision)">
+              <Clock size={12} />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-zinc-400" onClick={handleDismiss} title="Ignorer">
               <X size={12} />
             </Button>
           </div>

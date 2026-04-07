@@ -88,6 +88,13 @@ export interface Creditor {
   phone: string | null
   email: string | null
   notes: string | null
+  /** Immatriculation (ex. R.C.S PARIS 845151067). */
+  company_registration: string | null
+  address_street: string | null
+  address_postal_code: string | null
+  address_city: string | null
+  /** Pays libellé pour courriers / PDF ; si vide, dérivé de country_code. */
+  address_country: string | null
   created_at: string
 }
 
@@ -277,6 +284,28 @@ export interface ExchangeRate {
   created_at: string
 }
 
+/** Tables Google Calendar (Sprint B) — typage client léger. */
+export interface GoogleCalendarTokenRow {
+  id: string
+  user_id: string
+  access_token: string
+  refresh_token: string
+  token_expiry: string
+  scope: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface GoogleCalendarSelectionRow {
+  id: string
+  user_id: string
+  calendar_id: string
+  calendar_name: string
+  color: string | null
+  is_selected: boolean
+  created_at: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -309,6 +338,16 @@ export type Database = {
         Row: ExchangeRate
         Insert: Omit<ExchangeRate, 'id' | 'created_at'>
         Update: Partial<Omit<ExchangeRate, 'id' | 'created_at'>>
+      }
+      google_calendar_tokens: {
+        Row: GoogleCalendarTokenRow
+        Insert: Omit<GoogleCalendarTokenRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<GoogleCalendarTokenRow, 'id' | 'user_id'>>
+      }
+      google_calendar_selections: {
+        Row: GoogleCalendarSelectionRow
+        Insert: Omit<GoogleCalendarSelectionRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<GoogleCalendarSelectionRow, 'id' | 'user_id'>>
       }
     }
     Views: {

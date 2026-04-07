@@ -9,8 +9,8 @@ export type PaymentWithAccount = Payment & {
 export type PaymentRow = Payment & {
   accounts?: { name: string } | null
   account?: { name: string } | null
-  debts?: { title: string } | null
-  debt?: { title: string } | null
+  debts?: { title: string; is_recurring_instance?: boolean } | null
+  debt?: { title: string; is_recurring_instance?: boolean } | null
 }
 
 export interface PaymentFilters {
@@ -90,4 +90,21 @@ export async function getPaymentsByDebt(
     .order('payment_date', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []) as PaymentWithAccount[]
+}
+
+/** Paiements liés à une liste de dettes (ex. toutes les dettes d’un créancier). */
+export async function getPaymentsByDebtIds(
+  companyId: string,
+  debtIds: string[]
+): Promise<PaymentRow[]> {
+  if (debtIds.length === 0) return []
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*, accounts(name), debts(title, is_recurring_instance)')
+    .eq('company_id', companyId)
+    .in('debt_id', debtIds)
+    .order('payment_date', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as PaymentRow[]
 }

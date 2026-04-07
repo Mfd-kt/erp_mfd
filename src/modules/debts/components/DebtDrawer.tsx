@@ -28,6 +28,8 @@ const emptyForm: DebtFormData = {
 interface DebtDrawerProps {
   companyId: string
   debt?: DebtRow | null
+  /** Préremplit le créancier à la création (ex. fiche créancier). */
+  defaultCreditorId?: string
   creditors: Creditor[]
   debtCategories: DebtCategory[]
   debtTypes: DebtType[]
@@ -39,7 +41,18 @@ interface DebtDrawerProps {
 
 const fieldClass = 'w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-zinc-700'
 
-export function DebtDrawer({ companyId, debt, creditors, debtCategories, debtTypes, open, onOpenChange, onSuccess, onRefresh }: DebtDrawerProps) {
+export function DebtDrawer({
+  companyId,
+  debt,
+  defaultCreditorId,
+  creditors,
+  debtCategories,
+  debtTypes,
+  open,
+  onOpenChange,
+  onSuccess,
+  onRefresh,
+}: DebtDrawerProps) {
   const [form, setForm] = useState<DebtFormData>(emptyForm)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -52,11 +65,15 @@ export function DebtDrawer({ companyId, debt, creditors, debtCategories, debtTyp
       if (debt) {
         setForm({ title: debt.title, creditor_id: debt.creditor_id, debt_category_id: debt.debt_category_id, amount_original: Number(debt.amount_original), currency_code: normalizeCurrencyCode(debt.currency_code), incurred_date: debt.incurred_date?.slice(0, 10) ?? '', due_date: debt.due_date?.slice(0, 10) ?? null, priority: (debt.priority as DebtFormData['priority']) ?? 'normal', notes: debt.notes ?? '' })
       } else {
-        setForm({ ...emptyForm, incurred_date: new Date().toISOString().slice(0, 10) })
+        setForm({
+          ...emptyForm,
+          incurred_date: new Date().toISOString().slice(0, 10),
+          creditor_id: defaultCreditorId ?? '',
+        })
       }
       setError(null)
     }
-  }, [open, debt])
+  }, [open, debt, defaultCreditorId])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

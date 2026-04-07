@@ -36,11 +36,22 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   { name: 'get_recent_alerts', description: 'Alertes récentes (groupées par sévérité, critiques en premier, noms de sociétés).', parameters: { type: 'object', properties: {} } },
   { name: 'get_daily_plan', description: 'Plan du jour.', parameters: { type: 'object', properties: { date: { type: 'string' } } } },
   { name: 'get_open_tasks', description: 'Tâches ouvertes (exclut done/cancelled, avec scope et société).', parameters: { type: 'object', properties: {} } },
-  { name: 'get_sprint_summary', description: 'Résumé d\'un sprint.', parameters: { type: 'object', properties: { sprintId: { type: 'string' } }, required: ['sprintId'] } },
+  { name: 'get_sprint_summary', description: 'Résumé d\'un sprint (progression, tâches).', parameters: { type: 'object', properties: { sprintId: { type: 'string' } }, required: ['sprintId'] } },
+  {
+    name: 'list_recent_sprints',
+    description:
+      'Liste les sprints récents du périmètre (titres, statuts, dates). Utiliser pour "mes sprints", "quels sprints en cours", ou avant de proposer un nouveau sprint.',
+    parameters: { type: 'object', properties: {} },
+  },
   { name: 'get_safe_withdrawal_capacity', description: 'Capacité de retrait sécurisée.', parameters: { type: 'object', properties: {} } },
   { name: 'create_task', description: 'Créer une tâche. Nécessite confirmation si priorité haute.', parameters: { type: 'object', properties: { title: { type: 'string' }, description: { type: 'string' }, priority: { type: 'string' }, companyId: { type: 'string' } }, required: ['title'] } },
   { name: 'create_recommendation', description: 'Créer une recommandation proactive.', parameters: { type: 'object', properties: { title: { type: 'string' }, body: { type: 'string' }, severity: { type: 'string' }, recommendationType: { type: 'string' } }, required: ['title', 'recommendationType'] } },
-  { name: 'propose_create_sprint', description: 'Proposer la création d\'un sprint. Nécessite confirmation utilisateur. Ne pas exécuter directement.', parameters: { type: 'object', properties: { title: { type: 'string' }, goal: { type: 'string' }, scopeType: { type: 'string', enum: ['global', 'business', 'personal'] }, companyId: { type: 'string' }, durationDays: { type: 'number' } }, required: ['title', 'scopeType'] } },
+  {
+    name: 'propose_create_sprint',
+    description:
+      'Proposer la création d\'un sprint (objectif, durée). L\'utilisateur confirme dans la bannière du copilote avant création réelle. Appeler quand un objectif sur 1–4 semaines est pertinent.',
+    parameters: { type: 'object', properties: { title: { type: 'string' }, goal: { type: 'string' }, scopeType: { type: 'string', enum: ['global', 'business', 'personal'] }, companyId: { type: 'string' }, durationDays: { type: 'number' } }, required: ['title', 'scopeType'] },
+  },
 ]
 
 export function toOpenAIChatTools() {

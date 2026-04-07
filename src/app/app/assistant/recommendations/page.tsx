@@ -19,6 +19,7 @@ export default async function RecommendationsPage() {
     dismissed: recommendations.filter((r) => r.status === 'dismissed'),
     done: recommendations.filter((r) => r.status === 'done'),
   }
+  const ignoredLabel = 'Ignorées (dismissed)'
 
   return (
     <div className="space-y-8">
@@ -48,6 +49,36 @@ export default async function RecommendationsPage() {
               <div key={r.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
                 <p className="font-medium text-zinc-100">{r.title}</p>
                 <p className="text-xs text-zinc-500">Acceptée</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionBlock>
+
+      <SectionBlock title={ignoredLabel} subtitle="Fermées sans exécution — utile pour mesurer la cohérence.">
+        {byStatus.dismissed.length === 0 ? (
+          <p className="text-sm text-zinc-500">Aucune.</p>
+        ) : (
+          <div className="space-y-2">
+            {byStatus.dismissed.map((r) => (
+              <div key={r.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
+                <p className="font-medium text-zinc-100">{r.title}</p>
+                <p className="text-xs text-zinc-500">Ignorée</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionBlock>
+
+      <SectionBlock title="Fait" subtitle="Traitées ou marquées comme réalisées.">
+        {byStatus.done.length === 0 ? (
+          <p className="text-sm text-zinc-500">Aucune.</p>
+        ) : (
+          <div className="space-y-2">
+            {byStatus.done.map((r) => (
+              <div key={r.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
+                <p className="font-medium text-zinc-100">{r.title}</p>
+                <p className="text-xs text-zinc-500">Fait</p>
               </div>
             ))}
           </div>

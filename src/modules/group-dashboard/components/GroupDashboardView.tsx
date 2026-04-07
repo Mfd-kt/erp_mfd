@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { HeroPageHeader } from '@/components/layout/HeroPageHeader'
 import { SectionBlock } from '@/components/ui/section-block'
@@ -18,7 +19,7 @@ import { GroupTasksSection } from './GroupTasksSection'
 import { GroupCopilotSection } from './GroupCopilotSection'
 import { GroupPlanningSnippet } from './GroupPlanningSnippet'
 import { GroupSprintsSnippet } from './GroupSprintsSnippet'
-import { Bell, Bot, Building2, Calendar, ListTodo } from 'lucide-react'
+import { Bell, BookOpen, Bot, Building2, Calendar, ListTodo } from 'lucide-react'
 
 export interface GroupDashboardViewProps {
   groupName: string
@@ -67,6 +68,10 @@ export interface GroupDashboardViewProps {
     recommendations: AssistantRecommendation[]
     latestConversation: AssistantConversation | null
   }
+  /** Carte journal (server-rendered) dans la colonne Exécution */
+  journalCard?: ReactNode
+  /** Horodatage déjà formaté côté serveur pour éviter mismatch SSR/client. */
+  lastUpdateLabel?: string
 }
 
 export function GroupDashboardView({
@@ -79,6 +84,8 @@ export function GroupDashboardView({
   alertsBlock,
   entities,
   execution,
+  journalCard,
+  lastUpdateLabel,
 }: GroupDashboardViewProps) {
   const [explain, setExplain] = useState<GroupExplainPayload | null>(null)
   const alertsCritical = Number(alertsBlock?.critical.value ?? '0') || 0
@@ -111,13 +118,7 @@ export function GroupDashboardView({
     actionItems.push('Maintenir le rythme actuel et surveiller les prochains jalons.')
   }
   const topActions = actionItems.slice(0, 3)
-  const lastUpdate = new Date().toLocaleString('fr-FR', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const lastUpdate = lastUpdateLabel ?? '—'
   const riskScore = boardStatus === 'red' ? 30 : boardStatus === 'amber' ? 60 : 85
   const executionScore = execution
     ? Math.min(100, Math.max(20, Math.round(((execution.tasks.counts.done + 1) / (execution.tasks.counts.open + execution.tasks.counts.done + 1)) * 100)))
@@ -355,6 +356,16 @@ export function GroupDashboardView({
 
         {execution ? (
           <div className="space-y-6 xl:col-span-4">
+            {journalCard ? (
+              <SectionBlock
+                title="Journal"
+                subtitle="Bilan quotidien et série."
+                icon={<BookOpen size={14} />}
+                badge="Execution"
+              >
+                {journalCard}
+              </SectionBlock>
+            ) : null}
             <SectionBlock
               title="Tâches groupe"
               subtitle="Visibilité rapide du flux d'exécution."

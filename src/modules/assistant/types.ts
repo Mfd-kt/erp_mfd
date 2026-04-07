@@ -15,6 +15,8 @@ export interface AssistantConversation {
   title: string
   summary: string | null
   status: AssistantConversationStatus
+  conversation_type?: string
+  context_metadata?: Record<string, unknown> | null
   created_at: string
   updated_at: string
   last_message_at: string | null
@@ -49,9 +51,11 @@ export interface AssistantRecommendation {
   severity: AssistantRecommendationSeverity
   title: string
   body: string | null
+  description?: string | null
   status: AssistantRecommendationStatus
   linked_entity_type: string | null
   linked_entity_id: string | null
+  conversation_id?: string | null
   created_at: string
   updated_at: string
 }

@@ -6,6 +6,7 @@ export interface RecurringRulesFilters {
   is_active?: boolean
   auto_generate?: boolean
   debt_category_id?: string
+  creditor_id?: string
 }
 
 export async function getRecurringRules(
@@ -23,6 +24,7 @@ export async function getRecurringRules(
   if (filters?.is_active !== undefined) query = query.eq('is_active', filters.is_active)
   if (filters?.auto_generate !== undefined) query = query.eq('auto_generate', filters.auto_generate)
   if (filters?.debt_category_id) query = query.eq('debt_category_id', filters.debt_category_id)
+  if (filters?.creditor_id) query = query.eq('creditor_id', filters.creditor_id)
 
   const { data, error } = await query
   if (error) throw new Error(error.message)

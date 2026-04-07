@@ -8,6 +8,8 @@ import { getConversationById, getMessages } from './queries'
 import { confirmPendingAction, markPendingActionExecuted, cancelPendingAction } from './confirmations'
 import { actionTools } from './tools'
 import { chat } from './service'
+import { runControlledLearningAggregate } from '@/features/copilot/learning'
+import { insertFeedbackEvent } from '@/features/copilot/repository'
 
 async function buildContext(scopeType: AssistantScopeType, companyId: string | null): Promise<AssistantContext> {
   const scope = await getAccessScope()
@@ -68,6 +70,7 @@ export async function sendMessage(
 
   revalidatePath('/app/assistant')
   revalidatePath(`/app/assistant/${conversationId}`)
+  void runControlledLearningAggregate(supabase, scope.userId).catch(() => {})
   return { content: assistantContent }
 }
 
@@ -205,6 +208,14 @@ export async function executePendingAction(pendingActionId: string) {
   let result: { success: boolean; data?: unknown; error?: string }
 
   switch (confirmed.actionName) {
+    case 'create_task':
+      result = await actionTools.create_task(ctx, {
+        title: String(confirmed.payload.title ?? ''),
+        description: confirmed.payload.description != null ? String(confirmed.payload.description) : undefined,
+        priority: confirmed.payload.priority != null ? String(confirmed.payload.priority) : undefined,
+        companyId: confirmed.payload.companyId != null ? String(confirmed.payload.companyId) : undefined,
+      })
+      break
     case 'create_sprint':
       result = await actionTools.execute_create_sprint(ctx, confirmed.payload as {
         title: string
@@ -270,12 +281,93 @@ export async function updateRecommendationStatus(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non authentifié')
 
+  const { data: recoRow } = await supabase
+    .from('assistant_recommendations')
+    .select('conversation_id')
+    .eq('id', recommendationId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
   const { error } = await supabase
     .from('assistant_recommendations')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', recommendationId)
     .eq('user_id', user.id)
   if (error) throw new Error(error.message)
+
+  const convId = recoRow?.conversation_id != null ? String(recoRow.conversation_id) : null
+
+  const { createDecision, markDecisionExecuted } = await import('@/features/copilot/decisions')
+  if (status === 'accepted') {
+    await createDecision(supabase, {
+      userId: user.id,
+      recommendationId,
+      conversationId: convId,
+      decisionType: 'accepted',
+    })
+    await insertFeedbackEvent(supabase, {
+      userId: user.id,
+      feedbackType: 'recommendation_accepted',
+      recommendationId,
+      conversationId: convId,
+      payload: { status },
+    })
+  } else if (status === 'dismissed') {
+    await createDecision(supabase, {
+      userId: user.id,
+      recommendationId,
+      conversationId: convId,
+      decisionType: 'rejected',
+    })
+    await insertFeedbackEvent(supabase, {
+      userId: user.id,
+      feedbackType: 'recommendation_dismissed',
+      recommendationId,
+      conversationId: convId,
+      payload: { status },
+    })
+  } else if (status === 'done') {
+    await markDecisionExecuted(supabase, user.id, recommendationId)
+    await insertFeedbackEvent(supabase, {
+      userId: user.id,
+      feedbackType: 'recommendation_done',
+      recommendationId,
+      conversationId: convId,
+      payload: { status },
+    })
+  }
+
+  void runControlledLearningAggregate(supabase, user.id).catch(() => {})
   revalidatePath('/app/assistant')
   revalidatePath('/app/assistant/recommendations')
+  revalidatePath('/app/assistant/learned')
+}
+
+export async function postponeRecommendation(recommendationId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non authentifié')
+
+  const { data: recoRow } = await supabase
+    .from('assistant_recommendations')
+    .select('conversation_id')
+    .eq('id', recommendationId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const convId = recoRow?.conversation_id != null ? String(recoRow.conversation_id) : null
+  const { createDecision } = await import('@/features/copilot/decisions')
+  await createDecision(supabase, {
+    userId: user.id,
+    recommendationId,
+    conversationId: convId,
+    decisionType: 'postponed',
+    notes: 'Report (UI)',
+  })
+
+  void runControlledLearningAggregate(supabase, user.id).catch(() => {})
+  revalidatePath('/app/assistant')
+  revalidatePath('/app/assistant/learned')
 }

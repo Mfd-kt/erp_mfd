@@ -16,7 +16,10 @@ export function DailyBriefingCard({ summary, runDate }: DailyBriefingCardProps) 
         <CardContent className="p-4">
           <div className="flex items-center gap-2 text-zinc-500">
             <Bot size={18} />
-            <span className="text-sm">Aucun briefing du jour. Le cron quotidien génère le briefing.</span>
+            <span className="text-sm">
+              Aucun briefing du jour pour l’instant — il est généré automatiquement par le job planifié. En attendant,
+              lance une conversation ci-dessous pour un point personnalisé.
+            </span>
           </div>
         </CardContent>
       </Card>

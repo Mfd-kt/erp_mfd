@@ -34,7 +34,8 @@ export default async function RecurringRulesPage({
   const is_active = typeof resolved?.is_active === 'string' ? resolved.is_active === 'true' : undefined
   const auto_generate = typeof resolved?.auto_generate === 'string' ? resolved.auto_generate === 'true' : undefined
   const debt_category_id = typeof resolved?.debt_category_id === 'string' ? resolved.debt_category_id : undefined
-  const filters = { frequency, is_active, auto_generate, debt_category_id }
+  const creditor_id = typeof resolved?.creditor_id === 'string' ? resolved.creditor_id : undefined
+  const filters = { frequency, is_active, auto_generate, debt_category_id, creditor_id }
 
   const [rules, creditors, debtCategories, debtTypes, canManage] = await Promise.all([
     getRecurringRules(companyId, filters),

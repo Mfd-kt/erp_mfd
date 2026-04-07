@@ -17,6 +17,11 @@ export const creditorSchema = z.object({
   email: z.string().email('Email invalide').nullable().optional().or(z.literal('')),
   phone: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  company_registration: z.union([z.string().max(500), z.literal('')]).optional(),
+  address_street: z.union([z.string().max(500), z.literal('')]).optional(),
+  address_postal_code: z.union([z.string().max(32), z.literal('')]).optional(),
+  address_city: z.union([z.string().max(200), z.literal('')]).optional(),
+  address_country: z.union([z.string().max(200), z.literal('')]).optional(),
 })
 
 export const updateCreditorSchema = creditorSchema.extend({

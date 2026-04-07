@@ -30,6 +30,7 @@ export function ExplainCalculationTrigger({
     <>
       <button
         type="button"
+        data-print-hide
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()

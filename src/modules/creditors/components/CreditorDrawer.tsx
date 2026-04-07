@@ -26,7 +26,19 @@ interface CreditorDrawerProps {
   onSuccess: (createdId?: string) => void
 }
 
-const emptyForm: CreditorFormData = { name: '', creditor_type: 'other', country_code: undefined, email: '', phone: '', notes: '' }
+const emptyForm: CreditorFormData = {
+  name: '',
+  creditor_type: 'other',
+  country_code: undefined,
+  email: '',
+  phone: '',
+  notes: '',
+  company_registration: '',
+  address_street: '',
+  address_postal_code: '',
+  address_city: '',
+  address_country: '',
+}
 const fieldClass = 'w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-zinc-700'
 
 export function CreditorDrawer({ companyId, creditor, open, onOpenChange, onSuccess }: CreditorDrawerProps) {
@@ -37,7 +49,23 @@ export function CreditorDrawer({ companyId, creditor, open, onOpenChange, onSucc
 
   useEffect(() => {
     if (open) {
-      setForm(creditor ? { name: creditor.name, creditor_type: creditor.creditor_type, country_code: creditor.country_code ?? undefined, email: creditor.email ?? '', phone: creditor.phone ?? '', notes: creditor.notes ?? '' } : emptyForm)
+      setForm(
+        creditor
+          ? {
+              name: creditor.name,
+              creditor_type: creditor.creditor_type,
+              country_code: creditor.country_code ?? undefined,
+              email: creditor.email ?? '',
+              phone: creditor.phone ?? '',
+              notes: creditor.notes ?? '',
+              company_registration: creditor.company_registration ?? '',
+              address_street: creditor.address_street ?? '',
+              address_postal_code: creditor.address_postal_code ?? '',
+              address_city: creditor.address_city ?? '',
+              address_country: creditor.address_country ?? '',
+            }
+          : emptyForm,
+      )
       setError(null)
     }
   }, [open, creditor])
@@ -77,7 +105,7 @@ export function CreditorDrawer({ companyId, creditor, open, onOpenChange, onSucc
               entries={[
                 { label: 'Nom', description: 'Nom de la contrepartie a payer.' },
                 { label: 'Type', description: 'Classification pour faciliter filtres et analyses.' },
-                { label: 'Coordonnees', description: 'Email, telephone, code pays pour le suivi operationnel.' },
+                { label: 'Coordonnees', description: 'Email, telephone, code pays. Pour une societe : siege, immatriculation (RCS).' },
               ]}
               results={[
                 { label: 'Selection dans les dettes', description: 'Le creancier sera reutilisable dans les formulaires de dettes.' },
@@ -91,6 +119,66 @@ export function CreditorDrawer({ companyId, creditor, open, onOpenChange, onSucc
             <div className="space-y-2"><label className="text-sm font-medium text-zinc-300">Nom *</label><input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required className={fieldClass} /></div>
             <div className="space-y-2"><label className="text-sm font-medium text-zinc-300">Type</label><select value={form.creditor_type} onChange={(e) => setForm((p) => ({ ...p, creditor_type: e.target.value as CreditorFormData['creditor_type'] }))} className={fieldClass}>{CREDITOR_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
           </div>
+          {form.creditor_type === 'company' ? (
+            <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+              <p className="section-label">Siège social</p>
+              <p className="text-xs text-zinc-500">
+                Renseigne l’immatriculation et l’adresse telle qu’elles figurent sur les factures (ex. Kavkom France SAS).
+              </p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Immatriculation (RCS, SIREN, etc.)</label>
+                <input
+                  type="text"
+                  value={form.company_registration ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, company_registration: e.target.value }))}
+                  placeholder="ex. R.C.S PARIS 845151067"
+                  className={fieldClass}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Adresse (voie)</label>
+                <input
+                  type="text"
+                  value={form.address_street ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, address_street: e.target.value }))}
+                  placeholder="ex. 53 avenue Victor Hugo"
+                  className={fieldClass}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-300">Code postal</label>
+                  <input
+                    type="text"
+                    value={form.address_postal_code ?? ''}
+                    onChange={(e) => setForm((p) => ({ ...p, address_postal_code: e.target.value }))}
+                    placeholder="75016"
+                    className={fieldClass}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-300">Ville</label>
+                  <input
+                    type="text"
+                    value={form.address_city ?? ''}
+                    onChange={(e) => setForm((p) => ({ ...p, address_city: e.target.value }))}
+                    placeholder="Paris"
+                    className={fieldClass}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Pays (libellé)</label>
+                <input
+                  type="text"
+                  value={form.address_country ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, address_country: e.target.value }))}
+                  placeholder="ex. France — laisser vide pour utiliser le nom du code pays"
+                  className={fieldClass}
+                />
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
             <p className="section-label">Coordonnées</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

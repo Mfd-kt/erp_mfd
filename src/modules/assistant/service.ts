@@ -1,6 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AssistantContext } from './types'
 import { buildSystemPrompt } from './prompt'
+import {
+  buildCopilotContext,
+  serializeCopilotContext,
+} from '@/features/copilot/context'
+import {
+  COPILOT_CONSTRUCTIVE_CHALLENGE_BLOCK,
+  COPILOT_CRISIS_MODE_BLOCK,
+  COPILOT_DISCIPLINE_BLOCK,
+  COPILOT_EXECUTION_BLOCK,
+  COPILOT_DATA_GROUNDING_BLOCK,
+  formatCopilotContextForPrompt,
+  formatExecutiveCopilotBlocks,
+  formatExecutiveCopilotContextForPrompt,
+} from '@/features/copilot/prompts'
 import { getMemories } from './queries'
 import { formatMemoriesForPrompt } from './memory'
 import { readTools, actionTools } from './tools'
@@ -90,6 +104,7 @@ function getExecuteTool(
         get_daily_plan: () => readTools.get_daily_plan(ctx, argsClean.date as string),
         get_open_tasks: () => readTools.get_open_tasks(ctx),
         get_sprint_summary: () => readTools.get_sprint_summary(ctx, argsClean.sprintId as string),
+        list_recent_sprints: () => readTools.list_recent_sprints(ctx),
         get_safe_withdrawal_capacity: () => readTools.get_safe_withdrawal_capacity(ctx),
       }
 
@@ -158,15 +173,44 @@ export async function chat(
 ): Promise<{ content: string }> {
   const memories = await getMemories(supabase, ctx.userId)
   const memoriesText = formatMemoriesForPrompt(memories)
+
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
+  const copilotCtx = await buildCopilotContext({
+    supabase,
+    userId: ctx.userId,
+    conversationId: conversationId ?? null,
+    currentQuery: lastUserMessage,
+    executive: {
+      companies: ctx.companies,
+      baseCurrency: ctx.groupBaseCurrency ?? 'EUR',
+    },
+  })
+  const serializedCopilot = serializeCopilotContext(copilotCtx)
+  const executiveText = formatExecutiveCopilotBlocks(copilotCtx)
+  const crisisBlock = copilotCtx.executive?.crisis.isCrisisMode ? `${COPILOT_CRISIS_MODE_BLOCK}\n` : ''
+  const enrichedCopilotContext =
+    COPILOT_CONSTRUCTIVE_CHALLENGE_BLOCK +
+    COPILOT_DISCIPLINE_BLOCK +
+    '\n' +
+    COPILOT_EXECUTION_BLOCK +
+    '\n' +
+    COPILOT_DATA_GROUNDING_BLOCK +
+    '\n' +
+    crisisBlock +
+    (serializedCopilot.trim()
+      ? formatCopilotContextForPrompt(serializedCopilot)
+      : '\n\n(Aucun bloc mémoire structurée sérialisé pour cette requête — s’appuyer sur les outils ERP.)\n') +
+    (executiveText.trim() ? formatExecutiveCopilotContextForPrompt(executiveText) : '')
+
   const systemPrompt = buildSystemPrompt({
     memories: memoriesText,
     scopeType: ctx.scopeType,
     companyNames: ctx.companies.map((c) => c.trade_name ?? c.legal_name),
+    enrichedCopilotContext,
   })
 
   const executeTool = getExecuteTool(supabase, ctx, { conversationId: conversationId ?? null })
 
-  const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
   const intent = detectAssistantIntent(lastUserMessage)
   const resolved = resolveInitialToolCalls(intent, lastUserMessage)
 

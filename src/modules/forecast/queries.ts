@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import type { ExchangeRateStrictResult } from './types'
 
@@ -35,6 +36,29 @@ export async function getExchangeRateStrict(
 ): Promise<ExchangeRateStrictResult> {
   if (fromCurrency === toCurrency) return { rate: 1, missing: false }
   const supabase = await createClient()
+  const { data } = await supabase
+    .from('exchange_rates')
+    .select('rate')
+    .eq('from_currency', fromCurrency)
+    .eq('to_currency', toCurrency)
+    .lte('rate_date', date)
+    .order('rate_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (data?.rate != null) return { rate: Number(data.rate), missing: false }
+  return { rate: null, missing: true }
+}
+
+/**
+ * Même logique que getExchangeRateStrict, mais avec un client Supabase fourni (jobs, copilote, tests).
+ */
+export async function getExchangeRateStrictForClient(
+  supabase: SupabaseClient,
+  fromCurrency: string,
+  toCurrency: string,
+  date: string
+): Promise<ExchangeRateStrictResult> {
+  if (fromCurrency === toCurrency) return { rate: 1, missing: false }
   const { data } = await supabase
     .from('exchange_rates')
     .select('rate')

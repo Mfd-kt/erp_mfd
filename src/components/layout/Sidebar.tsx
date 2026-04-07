@@ -6,7 +6,7 @@ import { useState } from 'react'
 import type { Company, CompanyType, Group, MembershipRole } from '@/lib/supabase/types'
 import {
   LayoutDashboard, CreditCard, Users, Tag, FolderOpen,
-  RefreshCw, TrendingUp, Wallet, BarChart3, ChevronDown, Building2, Settings, LineChart, PieChart, Bell, History, Globe, Target, ListTodo, Calendar, Bot, Radio, SlidersHorizontal, ShieldCheck, Banknote
+  RefreshCw, TrendingUp, Wallet, BarChart3, ChevronDown, Building2, Settings, LineChart, PieChart, Bell, History, Globe, Target, ListTodo, Calendar, Kanban, Bot, Radio, SlidersHorizontal, ShieldCheck, Banknote, Contact, BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +15,9 @@ interface SidebarProps {
   group: Group | null
   role: MembershipRole
   isGroupAdmin: boolean
+  /** Google Calendar connecté (token présent). */
+  calendarConnected?: boolean
+  className?: string
 }
 
 const pilotageItems = (companyId: string) => [
@@ -48,7 +51,14 @@ const referentielItems = (companyId: string) => [
   { href: `/app/${companyId}/debt-types`, label: 'Types', icon: FolderOpen },
 ]
 
-export default function Sidebar({ companies, group, role, isGroupAdmin }: SidebarProps) {
+export default function Sidebar({
+  companies,
+  group,
+  role,
+  isGroupAdmin,
+  calendarConnected = false,
+  className,
+}: SidebarProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
@@ -67,7 +77,7 @@ export default function Sidebar({ companies, group, role, isGroupAdmin }: Sideba
     : []
 
   return (
-    <aside className="flex h-full min-h-0 w-72 shrink-0 flex-col overflow-hidden border-r border-zinc-800/80 bg-zinc-950">
+    <aside className={cn("no-print fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col overflow-hidden border-r border-zinc-800/80 bg-zinc-950", className)}>
       <div className="flex h-16 shrink-0 items-center border-b border-zinc-800/80 px-5">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-xs font-bold text-zinc-950">
@@ -103,6 +113,18 @@ export default function Sidebar({ companies, group, role, isGroupAdmin }: Sideba
             >
               <LayoutDashboard size={15} />
               Vue groupe
+            </Link>
+            <Link
+              href="/app/creditors"
+              className={cn(
+                'flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors',
+                pathname === '/app/creditors'
+                  ? 'border-zinc-700 bg-zinc-900 text-white'
+                  : 'border-transparent text-zinc-400 hover:bg-zinc-900/70 hover:text-zinc-100'
+              )}
+            >
+              <Contact size={15} />
+              Créanciers groupe
             </Link>
             <Link
               href="/app/global"
@@ -186,6 +208,44 @@ export default function Sidebar({ companies, group, role, isGroupAdmin }: Sideba
               <Target size={15} />
               Plan du jour
             </Link>
+            <Link
+              href="/app/journal"
+              className={cn(
+                'flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors',
+                pathname?.startsWith('/app/journal')
+                  ? 'border-zinc-700 bg-zinc-900 text-white'
+                  : 'border-transparent text-zinc-400 hover:bg-zinc-900/70 hover:text-zinc-100'
+              )}
+            >
+              <BookOpen size={15} />
+              Journal
+            </Link>
+            <Link
+              href="/app/calendar"
+              className={cn(
+                'flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors',
+                pathname?.startsWith('/app/calendar') && pathname !== '/app/calendar/settings'
+                  ? 'border-zinc-700 bg-zinc-900 text-white'
+                  : 'border-transparent text-zinc-400 hover:bg-zinc-900/70 hover:text-zinc-100'
+              )}
+            >
+              <Calendar size={15} />
+              Agenda
+            </Link>
+            {calendarConnected ? (
+              <Link
+                href="/app/calendar/settings"
+                className={cn(
+                  'ml-6 flex items-center gap-2 rounded-lg border border-transparent px-3 py-1.5 text-xs transition-colors',
+                  pathname === '/app/calendar/settings'
+                    ? 'border-zinc-700 bg-zinc-900 text-white'
+                    : 'text-zinc-500 hover:bg-zinc-900/70 hover:text-zinc-300'
+                )}
+              >
+                <Settings size={12} />
+                Paramètres agenda
+              </Link>
+            ) : null}
             {isGroupAdmin ? (
               <Link
                 href="/app/sprints"
@@ -196,7 +256,7 @@ export default function Sidebar({ companies, group, role, isGroupAdmin }: Sideba
                     : 'border-transparent text-zinc-400 hover:bg-zinc-900/70 hover:text-zinc-100'
                 )}
               >
-                <Calendar size={15} />
+                <Kanban size={15} />
                 Sprints
               </Link>
             ) : null}

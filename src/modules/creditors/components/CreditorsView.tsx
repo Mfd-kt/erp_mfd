@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,7 +14,7 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { CreditorDrawer } from './CreditorDrawer'
 import { deleteCreditor } from '../actions'
 import type { Creditor, Company } from '@/lib/supabase/types'
-import { Pencil } from 'lucide-react'
+import { Eye, Pencil } from 'lucide-react'
 
 const creditorTypeLabel: Record<string, string> = {
   person: 'Personne', company: 'Société', employee: 'Employé', government: 'Gouvernement', landlord: 'Propriétaire', bank: 'Banque', other: 'Autre',
@@ -73,18 +74,45 @@ export function CreditorsView({ companyId, company, creditors, canManage }: Cred
               <thead>
                 <tr className="border-b border-zinc-800/70">
                   {['Nom', 'Type', 'Pays', 'Email', 'Téléphone'].map((h) => <th key={h} className="px-4 py-4 text-left text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">{h}</th>)}
-                  {canManage && <th className="px-4 py-4 text-right text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Actions</th>}
+                  <th className="px-4 py-4 text-right text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/50">
                 {creditors.map((c) => (
                   <tr key={c.id} className="transition-colors hover:bg-zinc-900/70">
-                    <td className="px-4 py-4 font-medium text-zinc-100">{c.name}</td>
+                    <td className="px-4 py-4 font-medium text-zinc-100">
+                      <Link href={`/app/${companyId}/creditors/${c.id}`} className="transition-colors hover:text-white">
+                        {c.name}
+                      </Link>
+                    </td>
                     <td className="px-4 py-4"><Badge variant="outline" className="border-zinc-700 text-zinc-300">{creditorTypeLabel[c.creditor_type] ?? c.creditor_type}</Badge></td>
                     <td className="px-4 py-4 text-zinc-400">{c.country_code ?? '—'}</td>
                     <td className="px-4 py-4 text-zinc-400">{c.email ?? '—'}</td>
                     <td className="px-4 py-4 text-zinc-400">{c.phone ?? '—'}</td>
-                    {canManage && <td className="px-4 py-4 text-right"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-zinc-400 hover:bg-zinc-800 hover:text-white" onClick={() => openEdit(c)}><Pencil size={14} /></Button><DeleteButton description="Ce créancier sera supprimé. Les dettes liées ne seront pas supprimées." onConfirm={() => deleteCreditor(companyId, c.id)} /></div></td>}
+                    <td className="px-4 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-xl text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                          render={<Link href={`/app/${companyId}/creditors/${c.id}`} />}
+                          aria-label="Voir le détail"
+                        >
+                          <Eye size={14} />
+                        </Button>
+                        {canManage ? (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-zinc-400 hover:bg-zinc-800 hover:text-white" onClick={() => openEdit(c)}>
+                              <Pencil size={14} />
+                            </Button>
+                            <DeleteButton
+                              description="Ce créancier sera supprimé. Les dettes liées ne seront pas supprimées."
+                              onConfirm={() => deleteCreditor(companyId, c.id)}
+                            />
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

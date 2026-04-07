@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { getCompaniesByGroup } from '@/modules/companies/queries'
 import type { Company, Group, MembershipRole } from '@/lib/supabase/types'
@@ -24,8 +25,9 @@ const ROLE_RANK: Record<MembershipRole, number> = {
  * - group_admin (membership with company_id = null): all companies of the group via getCompaniesByGroup(group_id).
  * - Otherwise: companies from memberships (join), deduplicated by company.id.
  * Use this in layout, dashboard groupe, and any page that needs "visible companies" or group.
+ * Dédupliqué par requête RSC (layout + page) via React cache.
  */
-export async function getAccessScope(): Promise<AccessScope | null> {
+export const getAccessScope = cache(async function getAccessScope(): Promise<AccessScope | null> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -71,4 +73,4 @@ export async function getAccessScope(): Promise<AccessScope | null> {
     companies,
     isGroupAdmin: !!groupAdminMembership,
   }
-}
+})

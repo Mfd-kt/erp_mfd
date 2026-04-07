@@ -7,16 +7,34 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Menu, Settings } from 'lucide-react'
 import { NotificationBell } from '@/modules/notifications/components/NotificationBell'
 import type { User } from '@supabase/supabase-js'
 
 interface TopBarProps {
   user: User
-  profile: { full_name?: string | null; email?: string } | null
+  profile: {
+    display_name?: string | null
+    first_name?: string | null
+    last_name?: string | null
+    email?: string | null
+  } | null
+  onOpenMobileMenu?: () => void
 }
 
-export default function TopBar({ user, profile }: TopBarProps) {
+function profileDisplayName(
+  profile: TopBarProps['profile'],
+  user: User
+): string {
+  if (!profile) return user.email ?? 'Utilisateur'
+  const dn = profile.display_name?.trim()
+  if (dn) return dn
+  const combined = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
+  if (combined) return combined
+  return profile.email ?? user.email ?? 'Utilisateur'
+}
+
+export default function TopBar({ user, profile, onOpenMobileMenu }: TopBarProps) {
   const router = useRouter()
 
   async function signOut() {
@@ -26,16 +44,27 @@ export default function TopBar({ user, profile }: TopBarProps) {
     router.refresh()
   }
 
-  const initials = (profile?.full_name ?? user.email ?? 'U')
-    .split(' ')
-    .map(w => w[0])
+  const label = profileDisplayName(profile, user)
+
+  const initials = label
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
     .join('')
     .toUpperCase()
-    .slice(0, 2)
+    .slice(0, 2) || (user.email?.[0] ?? 'U').toUpperCase()
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-800/80 bg-zinc-950/95 px-6 backdrop-blur">
-      <div>
+    <header className="no-print flex h-16 shrink-0 items-center justify-between border-b border-zinc-800/80 bg-zinc-950/95 px-3 backdrop-blur sm:px-6">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenMobileMenu}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 md:hidden"
+          aria-label="Ouvrir le menu"
+        >
+          <Menu size={16} />
+        </button>
         <p className="section-label">ERP financier multi-sociétés</p>
       </div>
       <div className="flex items-center gap-3">
@@ -48,12 +77,12 @@ export default function TopBar({ user, profile }: TopBarProps) {
               </AvatarFallback>
             </Avatar>
             <span className="hidden text-sm text-zinc-300 sm:block">
-              {profile?.full_name ?? user.email}
+              {label}
             </span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="border-zinc-800 bg-zinc-950 text-zinc-200">
             <div className="px-3 py-2">
-              <p className="text-sm font-medium">{profile?.full_name ?? 'Utilisateur'}</p>
+              <p className="text-sm font-medium">{label}</p>
               <p className="text-xs text-zinc-400">{user.email}</p>
             </div>
             <DropdownMenuSeparator className="bg-zinc-800" />

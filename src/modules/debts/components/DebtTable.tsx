@@ -60,23 +60,64 @@ export function DebtTable({ companyId, debts, defaultCurrency, canManage, onEdit
 
   const groups = Object.values(groupedDebts)
 
+  const headers: { label: string; hint: string; align?: 'right' }[] = [
+    { label: 'Titre', hint: 'Libellé de l’obligation — clique pour ouvrir le détail.' },
+    { label: 'Créancier', hint: 'Contrepartie de la dette.' },
+    { label: 'Catégorie', hint: 'Classification comptable / métier.' },
+    { label: 'Montant', hint: 'Montant initial de la dette en devise société.', align: 'right' },
+    { label: 'Restant', hint: 'Encours encore dû (après paiements partiels).', align: 'right' },
+    { label: 'Échéance', hint: 'Date limite de paiement ; en rouge si dépassée.' },
+    { label: 'Priorité', hint: 'Niveau d’urgence pour le pilotage.' },
+    { label: 'Statut', hint: 'Ouverte, partiel, payée, en retard, etc.' },
+  ]
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-zinc-800/70">
-            {['Titre', 'Créancier', 'Catégorie', 'Montant', 'Restant', 'Échéance', 'Priorité', 'Statut'].map((h) => (
-              <th key={h} className="px-4 py-4 text-left text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">
-                {h}
-              </th>
-            ))}
-            {canManage && (
-              <th className="px-4 py-4 text-right text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">
-                Actions
-              </th>
-            )}
-          </tr>
-        </thead>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-2 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-3 py-2.5 text-xs text-zinc-400">
+        <p className="font-medium text-zinc-300">Légende des colonnes</p>
+        <span>
+          <span className="text-zinc-500">Montant</span> = obligation initiale ·{' '}
+          <span className="text-zinc-500">Restant</span> = à payer aujourd’hui
+        </span>
+        <span className="hidden sm:inline" aria-hidden>
+          ·
+        </span>
+        <span>Les bandeaux foncés = sous-total par créancier (plusieurs dettes regroupées).</span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <caption className="sr-only">
+            Liste des dettes regroupées par créancier, avec montants, restants, échéances et statuts.
+          </caption>
+          <thead>
+            <tr className="border-b border-zinc-800/70">
+              {headers.map((h) => (
+                <th
+                  key={h.label}
+                  scope="col"
+                  title={h.hint}
+                  className={`px-4 py-3 text-left align-bottom text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 ${h.align === 'right' ? 'text-right' : ''}`}
+                >
+                  <span className="block">{h.label}</span>
+                  <span className="mt-1 hidden max-w-[11rem] text-[10px] font-normal normal-case tracking-normal text-zinc-600 md:block md:max-w-none">
+                    {h.hint}
+                  </span>
+                </th>
+              ))}
+              {canManage && (
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-right align-bottom text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500"
+                >
+                  <span className="block">Actions</span>
+                  <span className="mt-1 hidden text-[10px] font-normal normal-case tracking-normal text-zinc-600 md:block">
+                    Payer, modifier, supprimer
+                  </span>
+                </th>
+              )}
+            </tr>
+          </thead>
         <tbody className="divide-y divide-zinc-800/50">
           {groups.map((group) => {
             const groupRemaining = group.rows.reduce(
@@ -85,14 +126,20 @@ export function DebtTable({ companyId, debts, defaultCurrency, canManage, onEdit
             )
             return (
               <Fragment key={`group-${group.creditorLabel}`}>
-                <tr className="bg-zinc-900/60">
-                  <td
-                    colSpan={canManage ? 9 : 8}
-                    className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-300"
-                  >
-                    {group.creditorLabel} · {group.rows.length} dette
-                    {group.rows.length > 1 ? 's' : ''} · Restant total{' '}
-                    {formatCurrency(groupRemaining, defaultCurrency)}
+                <tr className="border-l-2 border-amber-500/50 bg-zinc-900/70">
+                  <td colSpan={canManage ? 9 : 8} className="px-4 py-3">
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-200/90">
+                        Créancier · {group.creditorLabel}
+                      </span>
+                      <span className="text-xs text-zinc-500">
+                        {group.rows.length} dette{group.rows.length > 1 ? 's' : ''} dans ce groupe
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-zinc-100">
+                      Total restant à payer pour ce créancier :{' '}
+                      <span className="font-mono tabular-nums">{formatCurrency(groupRemaining, defaultCurrency)}</span>
+                    </p>
                   </td>
                 </tr>
                 {group.rows.map((debt) => {
@@ -154,6 +201,7 @@ export function DebtTable({ companyId, debts, defaultCurrency, canManage, onEdit
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

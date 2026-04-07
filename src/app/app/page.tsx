@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getAccessScope } from '@/lib/auth/get-access-scope'
 import { computeGroupAlerts } from '@/modules/alerts/service'
+import type { GroupAlertsResult } from '@/modules/alerts/types'
 import { GroupDashboardView } from '@/modules/group-dashboard/components/GroupDashboardView'
 import { getTasksForGroupDashboard } from '@/modules/tasks/queries'
 import { getSprintsForGroupDashboard } from '@/modules/sprints/queries'
@@ -16,6 +17,8 @@ import {
   buildRevenuesExplain,
 } from '@/modules/group-dashboard/build-payloads'
 import { computeDebtFxBreakdown } from '@/modules/group-dashboard/group-fx'
+import { getJournalCardData } from '@/modules/daily-journal/queries'
+import { JournalDashboardCard } from '@/modules/daily-journal/components/JournalDashboardCard'
 
 function formatCurrency(amount: number, currency: string) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount)
@@ -23,6 +26,17 @@ function formatCurrency(amount: number, currency: string) {
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function formatLastUpdateLabel() {
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+  }).format(new Date())
 }
 
 export default async function GroupDashboardPage() {
@@ -39,13 +53,33 @@ export default async function GroupDashboardPage() {
   const companyIds = companies.map((c) => c.id)
   const baseCurrency = scope.group?.base_currency ?? 'EUR'
 
+  const user = scope.user
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/sign-in')
 
-  const [{ data: debts, error: debtsError }, { data: revenues, error: revenuesError }, { data: accounts, error: accountsError }, tasksDigest, groupSprints, plan, recommendations, conversations] = await Promise.all([
+  const companyFilter =
+    companyIds.length > 0 ? `company_id.in.(${companyIds.join(',')}),company_id.is.null` : 'company_id.is.null'
+  const membershipQuery =
+    scope.group?.id
+      ? supabase
+          .from('memberships')
+          .select('user_id, role, company_id')
+          .eq('group_id', scope.group.id)
+          .or(companyFilter)
+      : null
+
+  const [
+    { data: debts, error: debtsError },
+    { data: revenues, error: revenuesError },
+    { data: accounts, error: accountsError },
+    tasksDigest,
+    groupSprints,
+    plan,
+    recommendations,
+    conversations,
+    journalCardData,
+    { data: memberships },
+    alertsResult,
+  ] = await Promise.all([
     supabase
       .from('debts_with_remaining')
       .select('id, company_id, title, currency_code, remaining_company_currency, computed_status, priority')
@@ -65,21 +99,17 @@ export default async function GroupDashboardPage() {
     getDailyPlan(user.id, todayStr()),
     getRecommendations(supabase, user.id, { status: 'open', limit: 3 }),
     getConversations(supabase, user.id, { status: 'active', limit: 1 }),
+    getJournalCardData(supabase, user.id),
+    membershipQuery ?? Promise.resolve({ data: [] as Array<{ user_id: string; role: string; company_id: string | null }> }),
+    scope.group
+      ? computeGroupAlerts(supabase, scope.group.id, companies, scope.group.base_currency)
+      : Promise.resolve(null as GroupAlertsResult | null),
   ])
   if (debtsError) throw new Error(debtsError.message)
   if (revenuesError) throw new Error(revenuesError.message)
   if (accountsError) throw new Error(accountsError.message)
 
-  // Membership + profiles are loaded separately to build human-friendly team chips.
-  const companyFilter = companyIds.length > 0 ? `company_id.in.(${companyIds.join(',')}),company_id.is.null` : 'company_id.is.null'
-  const membershipQuery = scope.group?.id
-    ? supabase
-        .from('memberships')
-        .select('user_id, role, company_id')
-        .eq('group_id', scope.group.id)
-        .or(companyFilter)
-    : null
-  const { data: memberships } = membershipQuery ? await membershipQuery : { data: [] as Array<{ user_id: string; role: string; company_id: string | null }> }
+  const alerts = alertsResult
   const memberUserIds = Array.from(new Set((memberships ?? []).map((m) => m.user_id).filter(Boolean)))
   const { data: profiles } = memberUserIds.length > 0
     ? await supabase
@@ -144,10 +174,6 @@ export default async function GroupDashboardPage() {
 
   const criticalDebts = debtRows.filter((d) => d.priority === 'critical' && d.computed_status !== 'paid').length
   const overdueCount = debtRows.filter((d) => d.computed_status === 'overdue').length
-
-  const alerts = scope.group
-    ? await computeGroupAlerts(supabase, scope.group.id, companies, scope.group.base_currency)
-    : null
 
   const explainOpen = buildOpenDebtsExplain(openFx, companies)
   const explainOverdue = buildOverdueExplain(overdueFx)
@@ -296,6 +322,8 @@ export default async function GroupDashboardPage() {
         recommendations,
         latestConversation: conversations[0] ?? null,
       }}
+      journalCard={<JournalDashboardCard data={journalCardData} />}
+      lastUpdateLabel={formatLastUpdateLabel()}
     />
   )
 }

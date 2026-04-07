@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -96,14 +97,14 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-96 border-zinc-800 bg-zinc-950 text-zinc-200">
-        <div className="flex items-center justify-between px-3 py-2">
+        <DropdownMenuGroup className="flex items-center justify-between px-3 py-2">
           <DropdownMenuLabel className="p-0 text-sm font-medium text-zinc-100">Notifications</DropdownMenuLabel>
           {unreadCount > 0 ? (
             <button disabled={isPending} onClick={markAll} className="text-xs text-zinc-400 transition-colors hover:text-white">
               Tout marquer lu
             </button>
           ) : null}
-        </div>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator className="bg-zinc-800" />
         {items.length === 0 ? (
           <div className="px-3 py-6 text-sm text-zinc-500">Aucune notification.</div>
