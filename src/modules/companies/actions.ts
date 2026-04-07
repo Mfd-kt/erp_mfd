@@ -65,6 +65,10 @@ const createCompanyMemberAccountSchema = z.object({
   displayName: z.string().trim().min(2, 'Nom affiché trop court').max(120).optional(),
 })
 
+function isMembershipUserFkError(message: string): boolean {
+  return /memberships_user_id_fkey/i.test(message) || /foreign key.*user_id/i.test(message)
+}
+
 export async function addCompanyMember(input: unknown) {
   const parsed = addCompanyMemberSchema.parse(input)
   const supabase = await getClient()
@@ -159,7 +163,7 @@ export async function createCompanyMemberAccount(input: unknown) {
 
     try {
       // Sécurise le profil si le trigger auth->public n'est pas encore appliqué.
-      await service.from('user_profiles').upsert(
+      const { error: upsertProfileError } = await service.from('user_profiles').upsert(
         {
           user_id: newUserId,
           email: normalizedEmail,
@@ -167,14 +171,36 @@ export async function createCompanyMemberAccount(input: unknown) {
         },
         { onConflict: 'user_id' }
       )
+      if (upsertProfileError) return { ok: false as const, error: upsertProfileError.message }
 
-      const { error: insertMembershipError } = await service.from('memberships').insert({
-        user_id: newUserId,
-        group_id: company.group_id,
-        company_id: company.id,
-        role: parsed.role,
-      })
-      if (insertMembershipError) return { ok: false as const, error: insertMembershipError.message }
+      // Certains projets ont un léger délai de réplication user auth -> FK memberships.
+      let insertMembershipError: { message: string } | null = null
+      for (let i = 0; i < 3; i += 1) {
+        const attempt = await service.from('memberships').insert({
+          user_id: newUserId,
+          group_id: company.group_id,
+          company_id: company.id,
+          role: parsed.role,
+        })
+        if (!attempt.error) {
+          insertMembershipError = null
+          break
+        }
+        insertMembershipError = { message: attempt.error.message }
+        if (!isMembershipUserFkError(attempt.error.message) || i === 2) break
+        await new Promise((resolve) => setTimeout(resolve, 250 * (i + 1)))
+      }
+      if (insertMembershipError) {
+        const m = insertMembershipError.message
+        if (isMembershipUserFkError(m)) {
+          return {
+            ok: false as const,
+            error:
+              "Compte créé mais liaison équipe impossible (FK user_id). Vérifie les migrations d'auth/profils et réessaie dans 5 secondes.",
+          }
+        }
+        return { ok: false as const, error: m }
+      }
     } catch {
       await service.auth.admin.deleteUser(newUserId).catch(() => undefined)
       return { ok: false as const, error: "Impossible d'ajouter ce membre pour le moment." }
