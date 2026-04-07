@@ -361,13 +361,17 @@ export function CompanyTeamView({ company, canManage, members, invitations }: Co
                     setSaving(true)
                     setError(null)
                     try {
-                      await createCompanyMemberAccount({
+                      const created = await createCompanyMemberAccount({
                         companyId: company.id,
                         email,
                         password,
                         role,
                         displayName: displayName.trim() || undefined,
                       })
+                      if (!created.ok) {
+                        setError(created.error)
+                        return
+                      }
                       setFeedback('Compte créé et membre ajouté. Il peut se connecter immédiatement.')
                       setOpen(false)
                       setEmail('')

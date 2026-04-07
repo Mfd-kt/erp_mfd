@@ -113,67 +113,81 @@ export async function addCompanyMember(input: unknown) {
 }
 
 export async function createCompanyMemberAccount(input: unknown) {
-  const parsed = createCompanyMemberAccountSchema.parse(input)
-  const supabase = await getClient()
-  const service = getService()
-  await assertGroupAdmin(supabase)
-
-  const { data: company, error: companyError } = await supabase
-    .from('companies')
-    .select('id, group_id')
-    .eq('id', parsed.companyId)
-    .single()
-  if (companyError || !company) throw new Error('Entreprise introuvable.')
-
-  const normalizedEmail = parsed.email.trim().toLowerCase()
-  const { data: existingProfile, error: existingProfileError } = await supabase
-    .from('user_profiles')
-    .select('user_id')
-    .ilike('email', normalizedEmail)
-    .maybeSingle()
-  if (existingProfileError) throw new Error(existingProfileError.message)
-  if (existingProfile?.user_id) {
-    throw new Error('Un compte existe déjà avec cet email. Utilise "Ajouter" ou "Invitation".')
-  }
-
-  const created = await service.auth.admin.createUser({
-    email: normalizedEmail,
-    password: parsed.password,
-    email_confirm: true,
-    user_metadata: parsed.displayName ? { display_name: parsed.displayName.trim() } : undefined,
-  })
-  if (created.error || !created.data.user) {
-    throw new Error(created.error?.message ?? 'Impossible de créer le compte utilisateur.')
-  }
-
-  const newUserId = created.data.user.id
-
   try {
-    // Sécurise le profil si le trigger auth->public n'est pas encore appliqué.
-    await service.from('user_profiles').upsert(
-      {
-        user_id: newUserId,
-        email: normalizedEmail,
-        display_name: parsed.displayName?.trim() || null,
-      },
-      { onConflict: 'user_id' }
-    )
+    const parsed = createCompanyMemberAccountSchema.parse(input)
+    const supabase = await getClient()
+    await assertGroupAdmin(supabase)
 
-    const { error: insertMembershipError } = await service.from('memberships').insert({
-      user_id: newUserId,
-      group_id: company.group_id,
-      company_id: company.id,
-      role: parsed.role,
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return {
+        ok: false as const,
+        error:
+          'Configuration manquante: SUPABASE_SERVICE_ROLE_KEY absent sur le serveur de production. Ajoute cette variable dans Vercel.',
+      }
+    }
+    const service = getService()
+
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('id, group_id')
+      .eq('id', parsed.companyId)
+      .single()
+    if (companyError || !company) return { ok: false as const, error: 'Entreprise introuvable.' }
+
+    const normalizedEmail = parsed.email.trim().toLowerCase()
+    const { data: existingProfile, error: existingProfileError } = await supabase
+      .from('user_profiles')
+      .select('user_id')
+      .ilike('email', normalizedEmail)
+      .maybeSingle()
+    if (existingProfileError) return { ok: false as const, error: existingProfileError.message }
+    if (existingProfile?.user_id) {
+      return { ok: false as const, error: 'Un compte existe déjà avec cet email. Utilise "Ajouter" ou "Invitation".' }
+    }
+
+    const created = await service.auth.admin.createUser({
+      email: normalizedEmail,
+      password: parsed.password,
+      email_confirm: true,
+      user_metadata: parsed.displayName ? { display_name: parsed.displayName.trim() } : undefined,
     })
-    if (insertMembershipError) throw new Error(insertMembershipError.message)
-  } catch (error) {
-    await service.auth.admin.deleteUser(newUserId).catch(() => undefined)
-    throw error
-  }
+    if (created.error || !created.data.user) {
+      return { ok: false as const, error: created.error?.message ?? 'Impossible de créer le compte utilisateur.' }
+    }
 
-  revalidatePath('/app')
-  revalidatePath('/app/settings/companies')
-  revalidatePath(`/app/${company.id}/team`)
+    const newUserId = created.data.user.id
+
+    try {
+      // Sécurise le profil si le trigger auth->public n'est pas encore appliqué.
+      await service.from('user_profiles').upsert(
+        {
+          user_id: newUserId,
+          email: normalizedEmail,
+          display_name: parsed.displayName?.trim() || null,
+        },
+        { onConflict: 'user_id' }
+      )
+
+      const { error: insertMembershipError } = await service.from('memberships').insert({
+        user_id: newUserId,
+        group_id: company.group_id,
+        company_id: company.id,
+        role: parsed.role,
+      })
+      if (insertMembershipError) return { ok: false as const, error: insertMembershipError.message }
+    } catch {
+      await service.auth.admin.deleteUser(newUserId).catch(() => undefined)
+      return { ok: false as const, error: "Impossible d'ajouter ce membre pour le moment." }
+    }
+
+    revalidatePath('/app')
+    revalidatePath('/app/settings/companies')
+    revalidatePath(`/app/${company.id}/team`)
+    return { ok: true as const }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erreur serveur'
+    return { ok: false as const, error: message }
+  }
 }
 
 const updateCompanyMemberRoleSchema = z.object({
