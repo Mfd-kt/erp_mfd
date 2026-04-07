@@ -69,6 +69,18 @@ function isMembershipUserFkError(message: string): boolean {
   return /memberships_user_id_fkey/i.test(message) || /foreign key.*user_id/i.test(message)
 }
 
+async function ensureLegacyPublicUsersRow(service: any, userId: string, email: string) {
+  // Compatibilité anciens schémas: memberships.user_id -> public.users(id).
+  // On tente une insertion minimale avant de redonner une erreur explicite.
+  try {
+    await service
+      .from('users')
+      .upsert({ id: userId, email }, { onConflict: 'id' })
+  } catch {
+    // noop: on laisse l'appelant gérer le message final.
+  }
+}
+
 export async function addCompanyMember(input: unknown) {
   const parsed = addCompanyMemberSchema.parse(input)
   const supabase = await getClient()
@@ -193,10 +205,23 @@ export async function createCompanyMemberAccount(input: unknown) {
       if (insertMembershipError) {
         const m = insertMembershipError.message
         if (isMembershipUserFkError(m)) {
+          await ensureLegacyPublicUsersRow(service, newUserId, normalizedEmail)
+          const retryAfterLegacySync = await service.from('memberships').insert({
+            user_id: newUserId,
+            group_id: company.group_id,
+            company_id: company.id,
+            role: parsed.role,
+          })
+          if (!retryAfterLegacySync.error) {
+            revalidatePath('/app')
+            revalidatePath('/app/settings/companies')
+            revalidatePath(`/app/${company.id}/team`)
+            return { ok: true as const }
+          }
           return {
             ok: false as const,
             error:
-              "Compte créé mais liaison équipe impossible (FK user_id). Vérifie les migrations d'auth/profils et réessaie dans 5 secondes.",
+              "Compte créé mais liaison équipe impossible (FK user_id). Applique la migration `20260316000010_sync_auth_users_to_public_users.sql` sur ce projet Supabase.",
           }
         }
         return { ok: false as const, error: m }
