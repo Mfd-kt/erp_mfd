@@ -57,6 +57,14 @@ const addCompanyMemberSchema = z.object({
   role: z.enum(['company_admin', 'finance_manager', 'viewer']),
 })
 
+const createCompanyMemberAccountSchema = z.object({
+  companyId: z.string().uuid(),
+  email: z.string().email('Email invalide'),
+  password: z.string().min(8, 'Mot de passe: 8 caractères minimum'),
+  role: z.enum(['company_admin', 'finance_manager', 'viewer']),
+  displayName: z.string().trim().min(2, 'Nom affiché trop court').max(120).optional(),
+})
+
 export async function addCompanyMember(input: unknown) {
   const parsed = addCompanyMemberSchema.parse(input)
   const supabase = await getClient()
@@ -98,6 +106,70 @@ export async function addCompanyMember(input: unknown) {
     role: parsed.role,
   })
   if (insertError) throw new Error(insertError.message)
+
+  revalidatePath('/app')
+  revalidatePath('/app/settings/companies')
+  revalidatePath(`/app/${company.id}/team`)
+}
+
+export async function createCompanyMemberAccount(input: unknown) {
+  const parsed = createCompanyMemberAccountSchema.parse(input)
+  const supabase = await getClient()
+  const service = getService()
+  await assertGroupAdmin(supabase)
+
+  const { data: company, error: companyError } = await supabase
+    .from('companies')
+    .select('id, group_id')
+    .eq('id', parsed.companyId)
+    .single()
+  if (companyError || !company) throw new Error('Entreprise introuvable.')
+
+  const normalizedEmail = parsed.email.trim().toLowerCase()
+  const { data: existingProfile, error: existingProfileError } = await supabase
+    .from('user_profiles')
+    .select('user_id')
+    .ilike('email', normalizedEmail)
+    .maybeSingle()
+  if (existingProfileError) throw new Error(existingProfileError.message)
+  if (existingProfile?.user_id) {
+    throw new Error('Un compte existe déjà avec cet email. Utilise "Ajouter" ou "Invitation".')
+  }
+
+  const created = await service.auth.admin.createUser({
+    email: normalizedEmail,
+    password: parsed.password,
+    email_confirm: true,
+    user_metadata: parsed.displayName ? { display_name: parsed.displayName.trim() } : undefined,
+  })
+  if (created.error || !created.data.user) {
+    throw new Error(created.error?.message ?? 'Impossible de créer le compte utilisateur.')
+  }
+
+  const newUserId = created.data.user.id
+
+  try {
+    // Sécurise le profil si le trigger auth->public n'est pas encore appliqué.
+    await service.from('user_profiles').upsert(
+      {
+        user_id: newUserId,
+        email: normalizedEmail,
+        display_name: parsed.displayName?.trim() || null,
+      },
+      { onConflict: 'user_id' }
+    )
+
+    const { error: insertMembershipError } = await service.from('memberships').insert({
+      user_id: newUserId,
+      group_id: company.group_id,
+      company_id: company.id,
+      role: parsed.role,
+    })
+    if (insertMembershipError) throw new Error(insertMembershipError.message)
+  } catch (error) {
+    await service.auth.admin.deleteUser(newUserId).catch(() => undefined)
+    throw error
+  }
 
   revalidatePath('/app')
   revalidatePath('/app/settings/companies')

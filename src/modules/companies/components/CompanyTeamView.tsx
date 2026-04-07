@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import {
   addCompanyMember,
   cancelCompanyInvitation,
+  createCompanyMemberAccount,
   inviteCompanyMember,
   removeCompanyMember,
   resendCompanyInvitation,
@@ -55,7 +56,10 @@ export function CompanyTeamView({ company, canManage, members, invitations }: Co
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [role, setRole] = useState<'company_admin' | 'finance_manager' | 'viewer'>('viewer')
+  const [mode, setMode] = useState<'existing' | 'direct'>('existing')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -69,7 +73,10 @@ export function CompanyTeamView({ company, canManage, members, invitations }: Co
       setFeedback('Membre ajouté avec succès.')
       setOpen(false)
       setEmail('')
+      setPassword('')
+      setDisplayName('')
       setRole('viewer')
+      setMode('existing')
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur d'ajout")
@@ -87,7 +94,10 @@ export function CompanyTeamView({ company, canManage, members, invitations }: Co
       setFeedback(result?.emailSent ? 'Invitation envoyée par email.' : (result?.emailError ?? "Invitation créée. Lien d'invitation copié."))
       setOpen(false)
       setEmail('')
+      setPassword('')
+      setDisplayName('')
       setRole('viewer')
+      setMode('existing')
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur d'invitation")
@@ -269,6 +279,22 @@ export function CompanyTeamView({ company, canManage, members, invitations }: Co
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddMember} className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-1">
+              <button
+                type="button"
+                onClick={() => setMode('existing')}
+                className={`rounded px-2 py-1.5 text-xs ${mode === 'existing' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400'}`}
+              >
+                Utilisateur existant
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('direct')}
+                className={`rounded px-2 py-1.5 text-xs ${mode === 'direct' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400'}`}
+              >
+                Créer compte direct
+              </button>
+            </div>
             <div>
               <label className="mb-1 block text-xs text-zinc-400">Email *</label>
               <input
@@ -279,6 +305,32 @@ export function CompanyTeamView({ company, canManage, members, invitations }: Co
                 className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
               />
             </div>
+            {mode === 'direct' ? (
+              <>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">Nom affiché (optionnel)</label>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                    placeholder="Ex: Ahmed Ben Ali"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">Mot de passe initial *</label>
+                  <input
+                    type="password"
+                    required={mode === 'direct'}
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                    placeholder="8 caractères minimum"
+                  />
+                </div>
+              </>
+            ) : null}
             <div>
               <label className="mb-1 block text-xs text-zinc-400">Rôle</label>
               <select
@@ -298,12 +350,46 @@ export function CompanyTeamView({ company, canManage, members, invitations }: Co
               <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
                 Annuler
               </Button>
-              <Button type="button" variant="outline" onClick={handleInviteMember} disabled={saving || !canManage || !email.trim()}>
+              <Button type="button" variant="outline" onClick={handleInviteMember} disabled={saving || !canManage || !email.trim() || mode === 'direct'}>
                 Envoyer invitation
               </Button>
-              <Button type="submit" disabled={saving || !canManage}>
-                {saving ? 'Ajout...' : 'Ajouter'}
-              </Button>
+              {mode === 'direct' ? (
+                <Button
+                  type="button"
+                  disabled={saving || !canManage || !email.trim() || password.length < 8}
+                  onClick={async () => {
+                    setSaving(true)
+                    setError(null)
+                    try {
+                      await createCompanyMemberAccount({
+                        companyId: company.id,
+                        email,
+                        password,
+                        role,
+                        displayName: displayName.trim() || undefined,
+                      })
+                      setFeedback('Compte créé et membre ajouté. Il peut se connecter immédiatement.')
+                      setOpen(false)
+                      setEmail('')
+                      setPassword('')
+                      setDisplayName('')
+                      setRole('viewer')
+                      setMode('existing')
+                      router.refresh()
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Erreur de création de compte')
+                    } finally {
+                      setSaving(false)
+                    }
+                  }}
+                >
+                  {saving ? 'Création...' : 'Créer compte + ajouter'}
+                </Button>
+              ) : (
+                <Button type="submit" disabled={saving || !canManage}>
+                  {saving ? 'Ajout...' : 'Ajouter'}
+                </Button>
+              )}
             </div>
           </form>
         </DialogContent>
